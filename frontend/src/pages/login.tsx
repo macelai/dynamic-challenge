@@ -3,7 +3,7 @@ import { useState } from "react";
 
 export default function LoginPage() {
   const isLoggedIn = useIsLoggedIn();
-  const { user, authToken } = useDynamicContext();
+  const { user, authToken, handleLogOut } = useDynamicContext();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGenerateWallet = async () => {
@@ -44,8 +44,15 @@ export default function LoginPage() {
               disabled={isLoading}
               className="w-full rounded-lg bg-green-600 px-6 py-3 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
               type="button"
-            >
+        >
               {isLoading ? 'Generating...' : 'Generate Wallet'}
+            </button>
+            <button
+              onClick={handleLogOut}
+              className="w-full rounded-lg bg-red-600 px-6 py-3 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+              type="button"
+            >
+              Logout
             </button>
           </div>
         ) : (
