@@ -6,10 +6,15 @@
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
+    "@dynamic-labs/passport-dynamic": "^0.0.15",
+    "@elysiajs/cors": "^1.1.1",
     "@prisma/client": "^5.22.0",
-    "elysia": "latest"
+    "elysia": "^1.1.25",
+    "elysia-connect-middleware": "^0.0.3",
+    "passport": "^0.7.0"
   },
   "devDependencies": {
+    "@types/passport": "^1.0.17",
     "bun-types": "latest",
     "prisma": "^5.22.0"
   },
