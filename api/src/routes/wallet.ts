@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { mnemonicQueue } from "../config/queue";
 import { queueMnemonicGeneration } from "../services/wallet";
 import { db } from "../../db";
+import { getBalance } from "../lib/viem-client";
 
 export type RawRequestWithUser = {
   user: {
@@ -47,6 +48,41 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       } catch (error) {
         console.error("Error generating wallet:", error);
         return reply.status(500).send("Error generating wallet");
+      }
+    }
+  );
+
+  fastify.get(
+    "/wallet/balance/:index",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const { index } = request.params as { index: string };
+        const user = (request.raw as unknown as RawRequestWithUser).user;
+
+        if (!user) {
+          return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const account = await db.account.findFirst({
+          where: {
+            userId: user.userId,
+            index: Number(index)
+          }
+        });
+
+        if (!account) {
+          return reply.status(404).send({ error: "Account not found for given index" });
+        }
+
+        const balance = await getBalance(account.address);
+
+        return reply.send({
+          balance: balance.toString()
+        });
+
+      } catch (error) {
+        console.error("Error fetching balance:", error);
+        return reply.status(500).send({ error: "Error fetching balance" });
       }
     }
   );
