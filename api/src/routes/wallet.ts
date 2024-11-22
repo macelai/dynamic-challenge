@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { mnemonicQueue } from "../config/queue";
 import { queueMnemonicGeneration } from "../services/wallet";
+import { db } from "../../db";
 
 export type RawRequestWithUser = {
   user: {
@@ -46,6 +47,52 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       } catch (error) {
         console.error("Error generating wallet:", error);
         return reply.status(500).send("Error generating wallet");
+      }
+    }
+  );
+
+  fastify.get(
+    "/wallet",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const user = (request.raw as unknown as RawRequestWithUser).user;
+
+        if (!user) {
+          return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const wallet = await db.wallet.findUnique({
+          where: { userId: user.userId },
+          select: {
+            id: true,
+            derivationPath: true,
+            currentIndex: true,
+            userId: true,
+            createdAt: true,
+            updatedAt: true,
+            accounts: {
+              orderBy: {
+                index: "asc",
+              },
+              select: {
+                id: true,
+                address: true,
+                name: true,
+                index: true,
+                createdAt: true,
+              },
+            },
+          },
+        });
+
+        if (!wallet) {
+          return reply.status(404).send({ error: "Wallet not found" });
+        }
+
+        return reply.send(wallet);
+      } catch (error) {
+        console.error("Error fetching wallet:", error);
+        return reply.status(500).send({ error: "Error fetching wallet" });
       }
     }
   );
