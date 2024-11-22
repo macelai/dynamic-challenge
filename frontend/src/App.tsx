@@ -1,6 +1,8 @@
 import { DynamicContextProvider, getAuthToken, type UserProfile, type Wallet } from "@dynamic-labs/sdk-react-core";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/login";
+import DashboardPage from "./pages/dashboard";
+import { ThemeProvider } from "./components/theme-provider";
 
 export default function App() {
 
@@ -44,12 +46,14 @@ export default function App() {
       }}
     >
       <BrowserRouter>
-        <div className="container mx-auto px-4">
-          <Routes>
+        <ThemeProvider defaultTheme="dark">
+          <div className="container mx-auto px-4">
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
-            {/* Add more routes here as needed */}
-          </Routes>
-        </div>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            </Routes>
+          </div>
+        </ThemeProvider>
       </BrowserRouter>
     </DynamicContextProvider>
   );
