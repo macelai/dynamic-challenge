@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../../db";
+import { queueMnemonicGeneration } from "../services/wallet";
 import type { RawRequestWithUser } from "./wallet";
 
 export const userRoutes = async (fastify: FastifyInstance) => {
@@ -15,7 +16,9 @@ export const userRoutes = async (fastify: FastifyInstance) => {
         await db.user.create({
           data: { id: user.userId, email: user.email },
         });
+        await queueMnemonicGeneration(user.userId);
       }
+
       return reply.status(200).send("Login successful");
     } catch (error) {
       return reply.status(500).send("Internal server error");

@@ -8,24 +8,44 @@ datasource db {
 }
 
 model User {
-  id      String   @id
-  email   String   @unique
-  wallets Wallet[]
+  id       String    @id
+  email    String    @unique
+  wallet   Wallet?
+  accounts Account[]
 
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }
 
 model Wallet {
-  id             String  @id @default(uuid())
-  name           String?
-  mnemonic       String  @unique
-  derivationPath String?
-  userId         String
-  user           User    @relation(fields: [userId], references: [id])
+  id             String    @id @default(uuid())
+  mnemonic       String    @unique
+  derivationPath String
+  currentIndex   Int       @default(0)
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id])
+  accounts       Account[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+model Account {
+  id       String  @id @default(uuid())
+  address  String  @unique
+  name     String?
+  index    Int
+  walletId String
+  wallet   Wallet  @relation(fields: [walletId], references: [id])
+  userId   String
+  user     User    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([walletId, index])
+  @@index([userId])
+  @@index([walletId])
 }

@@ -3,10 +3,23 @@ import fastifyCors from '@fastify/cors';
 import { configurePassport } from "./config/passport";
 import { type RawRequestWithUser, walletRoutes } from "./routes/wallet";
 import { userRoutes } from "./routes/user";
+import { setupMnemonicWorker } from './config/queue';
 
 const fastify = Fastify();
 
 const passport = configurePassport();
+const worker = setupMnemonicWorker();
+
+// Add graceful shutdown
+const shutdown = async () => {
+  console.log('Shutting down...');
+  await worker.close();
+  await fastify.close();
+  process.exit(0);
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
 
 await fastify.register(fastifyCors);
 

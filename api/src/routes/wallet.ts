@@ -1,7 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { db } from "../../db";
-import { generateMnemonic } from "../services/wallet";
-import { DEFAULT_DERIVATION_PATH } from "../constants";
+import { mnemonicQueue } from "../config/queue";
+import { queueMnemonicGeneration } from "../services/wallet";
 
 export type RawRequestWithUser = {
   user: {
@@ -39,18 +38,10 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
           return reply.status(401).send({ error: "Unauthorized" });
         }
 
-        const { mnemonic } = await generateMnemonic();
-
-        await db.wallet.create({
-          data: {
-            mnemonic,
-            userId: user.userId,
-            derivationPath: DEFAULT_DERIVATION_PATH,
-          },
-        });
+        const jobId = await queueMnemonicGeneration(user.userId);
 
         return {
-          mnemonic,
+          jobId,
         };
       } catch (error) {
         console.error("Error generating wallet:", error);
@@ -58,4 +49,22 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       }
     }
   );
+
+  fastify.get("/mnemonic-status/:jobId", async (request, reply) => {
+    const { jobId } = request.params as { jobId: string };
+    const job = await mnemonicQueue.getJob(jobId);
+
+    if (!job) {
+      reply.code(404).send({ error: "Job not found" });
+      return;
+    }
+
+    const state = await job.getState();
+    const result = job.returnvalue;
+
+    reply.send({
+      status: state,
+      result: state === "completed" ? result : null,
+    });
+  });
 };

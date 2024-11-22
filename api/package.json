@@ -9,6 +9,7 @@
     "@dynamic-labs/passport-dynamic": "^0.0.15",
     "@fastify/cors": "^10.0.1",
     "@prisma/client": "^5.22.0",
+    "bullmq": "^5.29.0",
     "fastify": "^5.1.0",
     "passport": "^0.7.0",
     "viem": "^2.21.49"
