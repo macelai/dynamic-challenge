@@ -1,28 +1,24 @@
-import { t, type Elysia } from "elysia";
+import type { FastifyInstance } from "fastify";
 import { db } from "../../db";
+import type { RawRequestWithUser } from "./wallet";
 
-export const userRoutes = (app: Elysia) => {
-  return app.post("/auth/login", async ({ body }) => {
+export const userRoutes = async (fastify: FastifyInstance) => {
+  fastify.post("/auth/login", async (request, reply) => {
     try {
-      if (!body.userId) {
-        return new Response('Missing userId', { status: 400 });
-      }
+      const user = (request.raw as unknown as RawRequestWithUser).user;
 
-      await db.user.upsert({
-        where: { userId: body.userId },
-        update: {},
-        create: { userId: body.userId }
+      const dbUser = await db.user.findUnique({
+        where: { id: user.userId },
       });
 
-      return new Response('Login successful', { status: 200 });
-
+      if (!dbUser) {
+        await db.user.create({
+          data: { id: user.userId, email: user.email },
+        });
+      }
+      return reply.status(200).send("Login successful");
     } catch (error) {
-      console.error("Login error:", error);
-      return new Response("Internal server error", { status: 500 });
+      return reply.status(500).send("Internal server error");
     }
-  }, {
-    body: t.Object({
-      userId: t.String(),
-    }),
   });
 };

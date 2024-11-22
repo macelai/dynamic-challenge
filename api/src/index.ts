@@ -1,27 +1,44 @@
-import { Elysia } from "elysia";
-import { connect } from "elysia-connect-middleware";
-import cors from "@elysiajs/cors";
+import Fastify from 'fastify';
+import fastifyCors from '@fastify/cors';
 import { configurePassport } from "./config/passport";
-import { walletRoutes } from "./routes/wallet";
+import { type RawRequestWithUser, walletRoutes } from "./routes/wallet";
 import { userRoutes } from "./routes/user";
+
+const fastify = Fastify();
 
 const passport = configurePassport();
 
-const app = new Elysia().use(cors({})).use(
-  connect(
-    passport.authenticate("dynamicStrategy", {
-      session: false,
-      failWithError: true,
-    })
-  )
-);
+await fastify.register(fastifyCors);
 
-// Register routes
-walletRoutes(app);
-userRoutes(app);
+fastify.addHook('preHandler', async (request, reply) => {
+  try {
+    await new Promise((resolve, reject) => {
+      passport.authenticate('dynamicStrategy', {
+        session: false,
+        failWithError: true
+      })(request.raw, reply.raw, (err: Error | null) => {
+        // Type assertion since we know passport adds the user property
+        (request as unknown as RawRequestWithUser).user = (request.raw as unknown as RawRequestWithUser).user;
+        if (err) reject(err);
+        else resolve(void 0);
+      });
+    });
 
-app.listen(3000);
+  } catch (err: unknown) {
+    console.log({err});
+    reply.code(401).send({ error: 'Unauthorized' });
+  }
+});
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+fastify.register(walletRoutes);
+fastify.register(userRoutes);
+
+try {
+  await fastify.listen({ port: 3000 });
+  const address = fastify.server.address();
+  const port = typeof address === 'string' ? address : address?.port;
+  console.log(`🚀 Server ready at http://localhost:${port}`);
+} catch (err) {
+  fastify.log.error(err);
+  process.exit(1);
+}
