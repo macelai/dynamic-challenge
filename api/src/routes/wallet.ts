@@ -4,7 +4,7 @@ import { HDKey } from "viem/accounts";
 import { db } from "../../db";
 import { mnemonicQueue } from "../config/queue";
 import { DEFAULT_DERIVATION_PATH } from "../constants";
-import { getBalance, signMessage } from "../lib/viem-client";
+import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
 import { queueMnemonicGeneration } from "../services/wallet";
 
 export type RawRequestWithUser = {
@@ -51,6 +51,61 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       } catch (error) {
         console.error("Error generating wallet:", error);
         return reply.status(500).send("Error generating wallet");
+      }
+    }
+  );
+
+  fastify.post(
+    "/wallet/send",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const user = (request.raw as unknown as RawRequestWithUser).user;
+
+        if (!user) {
+          return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { to, amount } = request.body as { to: string; amount: string };
+
+        if (!to || !amount) {
+          return reply
+            .status(400)
+            .send({ error: "Missing required parameters" });
+        }
+
+        const wallet = await db.wallet.findFirst({
+          where: {
+            userId: user.userId,
+          },
+        });
+
+        if (!wallet) {
+          return reply.status(404).send({ error: "Wallet not found" });
+        }
+
+        const seed = await mnemonicToSeed(wallet.mnemonic);
+        const hdKey = HDKey.fromMasterSeed(seed);
+        const child = hdKey.derive(DEFAULT_DERIVATION_PATH);
+
+        if (!child.privateKey) {
+          throw new Error("Failed to generate private key");
+        }
+
+        const privateKey = `0x${Buffer.from(child.privateKey).toString("hex")}`;
+
+        const hash = await sendTransaction(
+          to as `0x${string}`,
+          BigInt(amount),
+          privateKey as `0x${string}`
+        );
+
+        return reply.send({
+          transactionHash: hash
+        });
+
+      } catch (error) {
+        console.error("Error sending transaction:", error);
+        return reply.status(500).send({ error: "Error sending transaction" });
       }
     }
   );

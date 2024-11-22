@@ -32,3 +32,10 @@ export async function signMessage(message: string, privateKey: `0x${string}`) {
     message
   })
 }
+
+export async function sendTransaction(to: `0x${string}`, value: bigint, privateKey: `0x${string}`) {
+  return createWalletClientWithAccount(privateKey).walletClient.sendTransaction({
+    to,
+    value,
+  })
+}
