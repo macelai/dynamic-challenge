@@ -2,12 +2,12 @@ import { createPublicClient, createWalletClient, http } from 'viem'
 import { sepolia } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 
-export const publicClient = createPublicClient({
+const publicClient = createPublicClient({
   chain: sepolia,
   transport: http(process.env.RPC_URL),
 });
 
-export function createWalletClientWithAccount(privateKey: `0x${string}`) {
+function createWalletClientWithAccount(privateKey: `0x${string}`) {
 
   const account = privateKeyToAccount(privateKey)
 
@@ -24,5 +24,11 @@ export function createWalletClientWithAccount(privateKey: `0x${string}`) {
 export async function getBalance(address: string) {
   return publicClient.getBalance({
     address: address as `0x${string}`
+  })
+}
+
+export async function signMessage(message: string, privateKey: `0x${string}`) {
+  return createWalletClientWithAccount(privateKey).walletClient.signMessage({
+    message
   })
 }

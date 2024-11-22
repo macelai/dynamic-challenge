@@ -1,8 +1,11 @@
+import { mnemonicToSeed } from "@scure/bip39";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { mnemonicQueue } from "../config/queue";
-import { queueMnemonicGeneration } from "../services/wallet";
+import { HDKey } from "viem/accounts";
 import { db } from "../../db";
-import { getBalance } from "../lib/viem-client";
+import { mnemonicQueue } from "../config/queue";
+import { DEFAULT_DERIVATION_PATH } from "../constants";
+import { getBalance, signMessage } from "../lib/viem-client";
+import { queueMnemonicGeneration } from "../services/wallet";
 
 export type RawRequestWithUser = {
   user: {
@@ -52,6 +55,57 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
     }
   );
 
+  fastify.post(
+    "/wallet/sign",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        const user = (request.raw as unknown as RawRequestWithUser).user;
+
+        if (!user) {
+          return reply.status(401).send({ error: "Unauthorized" });
+        }
+
+        const { message } = request.body as { message: string };
+
+        if (!message) {
+          return reply
+            .status(400)
+            .send({ error: "Missing required parameters" });
+        }
+
+        const account = await db.wallet.findFirst({
+          where: {
+            userId: user.userId,
+          },
+        });
+
+        if (!account) {
+          return reply.status(404).send({ error: "Account not found" });
+        }
+
+        const seed = await mnemonicToSeed(account.mnemonic);
+
+        const hdKey = HDKey.fromMasterSeed(seed);
+        const child = hdKey.derive(DEFAULT_DERIVATION_PATH);
+
+        if (!child.privateKey) {
+          throw new Error("Failed to generate private key");
+        }
+
+        const privateKey = `0x${Buffer.from(child.privateKey).toString("hex")}`;
+
+        const signedMessage = await signMessage(message, privateKey as `0x${string}`);
+
+        return reply.send({
+          signedMessage,
+        });
+      } catch (error) {
+        console.error("Error signing message:", error);
+        return reply.status(500).send({ error: "Error signing message" });
+      }
+    }
+  );
+
   fastify.get(
     "/wallet/balance/:index",
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -66,20 +120,21 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
         const account = await db.account.findFirst({
           where: {
             userId: user.userId,
-            index: Number(index)
-          }
+            index: Number(index),
+          },
         });
 
         if (!account) {
-          return reply.status(404).send({ error: "Account not found for given index" });
+          return reply
+            .status(404)
+            .send({ error: "Account not found for given index" });
         }
 
         const balance = await getBalance(account.address);
 
         return reply.send({
-          balance: balance.toString()
+          balance: balance.toString(),
         });
-
       } catch (error) {
         console.error("Error fetching balance:", error);
         return reply.status(500).send({ error: "Error fetching balance" });
