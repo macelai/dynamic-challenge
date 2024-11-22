@@ -2,7 +2,7 @@
   "name": "api",
   "version": "1.0.50",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
     "dev": "bun run --watch src/index.ts"
   },
   "dependencies": {
@@ -17,7 +17,8 @@
   "devDependencies": {
     "@types/passport": "^1.0.17",
     "bun-types": "latest",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "vitest": "^2.1.5"
   },
   "module": "src/index.js"
 }

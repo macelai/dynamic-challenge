@@ -7,29 +7,56 @@ import { DEFAULT_DERIVATION_PATH } from "../constants";
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
 import { queueMnemonicGeneration } from "../services/wallet";
 
+export type VerifiedCredential = {
+  address: string;
+  chain: string;
+  id: string;
+  name_service: unknown;
+  public_identifier: string;
+  wallet_name: string;
+  wallet_provider: string;
+  format: string;
+};
+
+export type User = {
+  userId: string;
+  kid: string;
+  aud: string;
+  iss: string;
+  sub: string;
+  sid: string;
+  email: string;
+  environment_id: string;
+  lists: unknown[];
+  missing_fields: unknown[];
+  verified_credentials: VerifiedCredential[];
+};
+
 export type RawRequestWithUser = {
-  user: {
-    userId: string;
-    kid: string;
-    aud: string;
-    iss: string;
-    sub: string;
-    sid: string;
-    email: string;
-    environment_id: string;
-    lists: unknown[];
-    missing_fields: unknown[];
-    verified_credentials: Array<{
-      address: string;
-      chain: string;
-      id: string;
-      name_service: unknown;
-      public_identifier: string;
-      wallet_name: string;
-      wallet_provider: string;
-      format: string;
-    }>;
-  };
+  user: User;
+};
+
+const handleAuthenticatedRequest = (
+  user: User | undefined,
+  reply: FastifyReply
+) => {
+  if (!user) {
+    reply.status(401).send({ error: "Unauthorized" });
+    return false;
+  }
+  return true;
+};
+
+const derivePrivateKey = async (mnemonic: string) => {
+  const seed = await mnemonicToSeed(mnemonic);
+  const hdKey = HDKey.fromMasterSeed(seed);
+  const child = hdKey.derive(DEFAULT_DERIVATION_PATH);
+
+  if (!child.privateKey) {
+    throw new Error("Failed to generate private key");
+  }
+
+  return `0x${Buffer.from(child.privateKey).toString("hex")}` as `0x${string}`;
 };
 
 export const walletRoutes = async (fastify: FastifyInstance) => {
@@ -39,15 +66,10 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       try {
         const user = (request.raw as unknown as RawRequestWithUser).user;
 
-        if (!user) {
-          return reply.status(401).send({ error: "Unauthorized" });
-        }
+        if (!handleAuthenticatedRequest(user, reply)) return;
 
         const jobId = await queueMnemonicGeneration(user.userId);
-
-        return {
-          jobId,
-        };
+        return { jobId };
       } catch (error) {
         console.error("Error generating wallet:", error);
         return reply.status(500).send("Error generating wallet");
@@ -61,9 +83,7 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       try {
         const user = (request.raw as unknown as RawRequestWithUser).user;
 
-        if (!user) {
-          return reply.status(401).send({ error: "Unauthorized" });
-        }
+        if (!handleAuthenticatedRequest(user, reply)) return;
 
         const { to, amount } = request.body as { to: string; amount: string };
 
@@ -74,35 +94,21 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
         }
 
         const wallet = await db.wallet.findFirst({
-          where: {
-            userId: user.userId,
-          },
+          where: { userId: user.userId },
         });
 
         if (!wallet) {
           return reply.status(404).send({ error: "Wallet not found" });
         }
 
-        const seed = await mnemonicToSeed(wallet.mnemonic);
-        const hdKey = HDKey.fromMasterSeed(seed);
-        const child = hdKey.derive(DEFAULT_DERIVATION_PATH);
-
-        if (!child.privateKey) {
-          throw new Error("Failed to generate private key");
-        }
-
-        const privateKey = `0x${Buffer.from(child.privateKey).toString("hex")}`;
-
+        const privateKey = await derivePrivateKey(wallet.mnemonic);
         const hash = await sendTransaction(
           to as `0x${string}`,
           BigInt(amount),
-          privateKey as `0x${string}`
+          privateKey
         );
 
-        return reply.send({
-          transactionHash: hash
-        });
-
+        return reply.send({ transactionHash: hash });
       } catch (error) {
         console.error("Error sending transaction:", error);
         return reply.status(500).send({ error: "Error sending transaction" });
@@ -116,9 +122,7 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       try {
         const user = (request.raw as unknown as RawRequestWithUser).user;
 
-        if (!user) {
-          return reply.status(401).send({ error: "Unauthorized" });
-        }
+        if (!handleAuthenticatedRequest(user, reply)) return;
 
         const { message } = request.body as { message: string };
 
@@ -128,32 +132,18 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
             .send({ error: "Missing required parameters" });
         }
 
-        const account = await db.wallet.findFirst({
-          where: {
-            userId: user.userId,
-          },
+        const wallet = await db.wallet.findFirst({
+          where: { userId: user.userId },
         });
 
-        if (!account) {
+        if (!wallet) {
           return reply.status(404).send({ error: "Account not found" });
         }
 
-        const seed = await mnemonicToSeed(account.mnemonic);
+        const privateKey = await derivePrivateKey(wallet.mnemonic);
+        const signedMessage = await signMessage(message, privateKey);
 
-        const hdKey = HDKey.fromMasterSeed(seed);
-        const child = hdKey.derive(DEFAULT_DERIVATION_PATH);
-
-        if (!child.privateKey) {
-          throw new Error("Failed to generate private key");
-        }
-
-        const privateKey = `0x${Buffer.from(child.privateKey).toString("hex")}`;
-
-        const signedMessage = await signMessage(message, privateKey as `0x${string}`);
-
-        return reply.send({
-          signedMessage,
-        });
+        return reply.send({ signedMessage });
       } catch (error) {
         console.error("Error signing message:", error);
         return reply.status(500).send({ error: "Error signing message" });
@@ -168,9 +158,7 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
         const { index } = request.params as { index: string };
         const user = (request.raw as unknown as RawRequestWithUser).user;
 
-        if (!user) {
-          return reply.status(401).send({ error: "Unauthorized" });
-        }
+        if (!handleAuthenticatedRequest(user, reply)) return;
 
         const account = await db.account.findFirst({
           where: {
@@ -186,10 +174,7 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
         }
 
         const balance = await getBalance(account.address);
-
-        return reply.send({
-          balance: balance.toString(),
-        });
+        return reply.send({ balance: balance.toString() });
       } catch (error) {
         console.error("Error fetching balance:", error);
         return reply.status(500).send({ error: "Error fetching balance" });
@@ -203,9 +188,7 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       try {
         const user = (request.raw as unknown as RawRequestWithUser).user;
 
-        if (!user) {
-          return reply.status(401).send({ error: "Unauthorized" });
-        }
+        if (!handleAuthenticatedRequest(user, reply)) return;
 
         const wallet = await db.wallet.findUnique({
           where: { userId: user.userId },
@@ -217,9 +200,7 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
             createdAt: true,
             updatedAt: true,
             accounts: {
-              orderBy: {
-                index: "asc",
-              },
+              orderBy: { index: "asc" },
               select: {
                 id: true,
                 address: true,
@@ -248,14 +229,13 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
     const job = await mnemonicQueue.getJob(jobId);
 
     if (!job) {
-      reply.code(404).send({ error: "Job not found" });
-      return;
+      return reply.code(404).send({ error: "Job not found" });
     }
 
     const state = await job.getState();
     const result = job.returnvalue;
 
-    reply.send({
+    return reply.send({
       status: state,
       result: state === "completed" ? result : null,
     });
