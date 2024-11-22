@@ -5,68 +5,46 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-type  Wallet = {
-  id: string
-  name: string
-  address: string
-}
+import { useWalletBalance, useSignMessage, useGenerateWallet, useWallet, useSendTransaction, type Wallet } from "@/hooks/use-wallet"
+import { CopyIcon, useDynamicContext } from "@dynamic-labs/sdk-react-core"
+import { formatUnits, parseUnits } from "viem";
 
 export function WalletDashboard() {
-  const [balance, setBalance] = useState<number | null>(null)
+  const { authToken } = useDynamicContext();
   const [message, setMessage] = useState("")
-  const [signedMessage, setSignedMessage] = useState("")
   const [recipient, setRecipient] = useState("")
   const [amount, setAmount] = useState("")
-  const [transactionHash, setTransactionHash] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null)
+  const [selectedWallet, setSelectedWallet] = useState<Wallet['accounts'][0] | null>(null)
 
-  const wallets = [
-    {
-      id: "1",
-      name: "Wallet 1",
-      address: "0x1234567890abcdef",
-    },
-  ]
+  const {
+    data: balance,
+    refetch: refetchBalance,
+    isLoading: isBalanceLoading,
+  } = useWalletBalance(selectedWallet?.index, authToken || '')
 
-  const getBalance = async () => {
-    setIsLoading(true)
-    try {
-      // Mocking the API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setBalance(Math.random() * 10)
-    } catch (error) {
-      console.error('Error getting balance:', error)
-    } finally {
-      setIsLoading(false)
-    }
+  const signMessageMutation = useSignMessage(authToken || '')
+  const sendTransactionMutation = useSendTransaction(authToken || '')
+  const generateWalletMutation = useGenerateWallet(authToken || '')
+  const { data: walletData, isLoading: isWalletLoading } = useWallet(authToken || '')
+
+  const wallets = walletData?.accounts
+
+  if (!authToken) {
+    return <div>Please login to continue</div>
   }
 
-  const signMessage = async () => {
-    setIsLoading(true)
-    try {
-      // Mocking the API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setSignedMessage(`Mocked signed message for: ${message} from wallet: ${selectedWallet?.name}`)
-    } catch (error) {
-      console.error('Error signing message:', error)
-    } finally {
-      setIsLoading(false)
-    }
+  const handleSignMessage = () => {
+    if (!selectedWallet?.id || !message) return
+    signMessageMutation.mutate({ walletId: selectedWallet.id, message })
   }
 
-  const sendTransaction = async () => {
-    setIsLoading(true)
-    try {
-      // Mocking the API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      setTransactionHash(`Mocked transaction hash for sending ${amount} to ${recipient} from wallet: ${selectedWallet?.name}`)
-    } catch (error) {
-      console.error('Error sending transaction:', error)
-    } finally {
-      setIsLoading(false)
-    }
+
+  const handleSendTransaction = () => {
+    if (!recipient || !amount) return
+    sendTransactionMutation.mutate({
+      to: recipient,
+      amount: parseUnits(amount, 18).toString()
+    })
   }
 
   return (
@@ -76,20 +54,58 @@ export function WalletDashboard() {
         <CardDescription>Manage your crypto wallets</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-6">
-          <Label htmlFor="wallet-select">Select Wallet</Label>
-          <Select onValueChange={(value) => setSelectedWallet(wallets.find((wallet) => wallet.id === value) || null)} value={selectedWallet?.id}>
-            <SelectTrigger id="wallet-select">
-              <SelectValue placeholder="Select a wallet" />
-            </SelectTrigger>
-            <SelectContent>
-              {wallets.map((wallet) => (
-                <SelectItem key={wallet.id} value={wallet.id}>
-                  {wallet.name} ({wallet.address})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="space-y-4 mb-6">
+          <div>
+            <Label htmlFor="wallet-select">Select Wallet</Label>
+            {isWalletLoading ? (
+              <div>Loading wallets...</div>
+            ) : (
+              <>
+                <Select
+                  onValueChange={(value) => {
+                    const selectedWallet = wallets?.find(wallet => wallet.id === value);
+                    if (selectedWallet) {
+                      setSelectedWallet(selectedWallet);
+                    }
+                  }}
+                  value={selectedWallet?.id || ""}
+                >
+                  <SelectTrigger id="wallet-select">
+                    <SelectValue placeholder="Select a wallet" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wallets?.map((wallet) => (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        {wallet.name || `Account ${wallet.index}`} ({wallet.address.slice(0,6)}...{wallet.address.slice(-4)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {selectedWallet && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between">
+                      <p><span className="font-medium">Address:</span> {selectedWallet.address}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(selectedWallet.address)}
+                      >
+                        <CopyIcon className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <Button
+            onClick={() => generateWalletMutation.mutate()}
+            className="w-full"
+            disabled={isWalletLoading}
+          >
+            {isWalletLoading ? "Loading..." : "Generate New Wallet"}
+          </Button>
         </div>
         {selectedWallet ? (
           <Tabs defaultValue="balance" className="w-full">
@@ -104,15 +120,13 @@ export function WalletDashboard() {
                   <CardTitle>Your Balance</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {balance !== null ? (
-                    <p className="text-2xl font-bold">{balance.toFixed(4)} ETH</p>
-                  ) : (
-                    <p>Click the button to fetch your balance</p>
+                  {balance && (
+                    <p className="text-2xl font-bold">{formatUnits(BigInt(balance), 18)} ETH</p>
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button onClick={getBalance} disabled={isLoading}>
-                    {isLoading ? "Fetching..." : "Get Balance"}
+                  <Button onClick={() => refetchBalance()} disabled={isBalanceLoading}>
+                    {isBalanceLoading ? "Fetching..." : "Get Balance"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -131,16 +145,19 @@ export function WalletDashboard() {
                       onChange={(e) => setMessage(e.target.value)}
                     />
                   </div>
-                  {signedMessage && (
+                  {signMessageMutation.data && (
                     <div className="space-y-1">
                       <Label>Signed Message</Label>
-                      <p className="text-sm">{signedMessage}</p>
+                      <p className="text-sm break-all">{signMessageMutation.data.signedMessage}</p>
                     </div>
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button onClick={signMessage} disabled={isLoading || !message}>
-                    {isLoading ? "Signing..." : "Sign Message"}
+                  <Button
+                    onClick={handleSignMessage}
+                    disabled={signMessageMutation.isPending || !message}
+                  >
+                    {signMessageMutation.isPending ? "Signing..." : "Sign Message"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -168,19 +185,19 @@ export function WalletDashboard() {
                       onChange={(e) => setAmount(e.target.value)}
                     />
                   </div>
-                  {transactionHash && (
+                  {sendTransactionMutation.data && (
                     <div className="space-y-1">
                       <Label>Transaction Hash</Label>
-                      <p className="text-sm">{transactionHash}</p>
+                      <p className="text-sm">{sendTransactionMutation.data.transactionHash}</p>
                     </div>
                   )}
                 </CardContent>
                 <CardFooter>
                   <Button
-                    onClick={sendTransaction}
-                    disabled={isLoading || !recipient || !amount}
+                    onClick={handleSendTransaction}
+                    disabled={sendTransactionMutation.isPending || !recipient || !amount}
                   >
-                    {isLoading ? "Sending..." : "Send Transaction"}
+                    {sendTransactionMutation.isPending ? "Sending..." : "Send Transaction"}
                   </Button>
                 </CardFooter>
               </Card>
