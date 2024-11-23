@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useWalletBalance, useSignMessage, useGenerateWallet, useWallet, useSendTransaction, type Wallet } from "@/hooks/use-wallet"
 import { CopyIcon, useDynamicContext } from "@dynamic-labs/sdk-react-core"
 import { formatUnits, parseUnits } from "viem";
+import { useNavigate } from "react-router-dom"
 
 export function WalletDashboard() {
   const { authToken } = useDynamicContext();
+  const navigate = useNavigate()
   const [message, setMessage] = useState("")
   const [recipient, setRecipient] = useState("")
   const [amount, setAmount] = useState("")
@@ -30,7 +32,8 @@ export function WalletDashboard() {
   const wallets = walletData?.accounts
 
   if (!authToken) {
-    return <div>Please login to continue</div>
+    navigate("/login");
+    return null;
   }
 
   const handleSignMessage = () => {

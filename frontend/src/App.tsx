@@ -25,24 +25,20 @@ export default function App() {
     primaryWallet: Wallet | null;
     user: UserProfile;
   }) => {
-    try {
-      const authToken = getAuthToken();
-      const response = await fetch("http://localhost:3000/auth/login", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: params.user.userId,
-        }),
-      });
+    const authToken = getAuthToken();
+    const response = await fetch("http://localhost:3000/auth/login", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: params.user.userId,
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to authenticate with backend");
-      }
-    } catch (error) {
-      console.error("Authentication error:", error);
+    if (!response.ok) {
+      throw new Error("Failed to authenticate with backend");
     }
   };
 
