@@ -1,24 +1,27 @@
 {
-  "name": "api",
-  "version": "1.0.50",
-  "scripts": {
-    "test": "vitest",
-    "dev": "bun run --watch src/index.ts"
-  },
-  "dependencies": {
-    "@dynamic-labs/passport-dynamic": "^0.0.15",
-    "@fastify/cors": "^10.0.1",
-    "@prisma/client": "^5.22.0",
-    "bullmq": "^5.29.0",
-    "fastify": "^5.1.0",
-    "passport": "^0.7.0",
-    "viem": "^2.21.49"
-  },
-  "devDependencies": {
-    "@types/passport": "^1.0.17",
-    "bun-types": "latest",
-    "prisma": "^5.22.0",
-    "vitest": "^2.1.5"
-  },
-  "module": "src/index.js"
+	"name": "api",
+	"version": "1.0.50",
+	"scripts": {
+		"test": "vitest",
+		"test:db:push": "DATABASE_URL=\"postgresql://postgres:postgres@localhost:5433/api_test\" prisma db push",
+		"test:db:migrate": "DATABASE_URL=\"postgresql://postgres:postgres@localhost:5433/api_test\" prisma migrate dev",
+		"dev": "bun run --watch src/index.ts"
+	},
+	"dependencies": {
+		"@dynamic-labs/passport-dynamic": "^0.0.15",
+		"@fastify/cors": "^10.0.1",
+		"@prisma/client": "^5.22.0",
+		"bullmq": "^5.29.0",
+		"dotenv": "^16.4.5",
+		"fastify": "^5.1.0",
+		"passport": "^0.7.0",
+		"viem": "^2.21.49"
+	},
+	"devDependencies": {
+		"@types/passport": "^1.0.17",
+		"bun-types": "latest",
+		"prisma": "^5.22.0",
+		"vitest": "^2.1.5"
+	},
+	"module": "src/index.js"
 }
