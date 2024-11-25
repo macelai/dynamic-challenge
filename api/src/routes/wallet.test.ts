@@ -5,6 +5,8 @@ import { mnemonicQueue } from "../config/queue";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
 import { queueMnemonicGeneration } from "../services/wallet";
+import { randomBytes } from "node:crypto";
+import { decrypt, derivePrivateKey } from "../lib/crypto";
 
 // Mock external dependencies
 vi.mock("../../db", () => ({
@@ -35,13 +37,18 @@ vi.mock("../services/wallet", () => ({
   queueMnemonicGeneration: vi.fn(),
 }));
 
+vi.mock("../lib/crypto", () => ({
+  decrypt: vi.fn(),
+  derivePrivateKey: vi.fn(),
+}));
+
 const TEST_MNEMONIC = "test test test test test test test test test test test junk"; // Valid BIP39 mnemonic
 
 describe("Wallet Routes", () => {
   let app: FastifyInstance;
   const mockUser = {
     userId: "test-user-id",
-    email: "test@example.com",
+    email: "test@example.com"
   };
 
   beforeEach(async () => {
@@ -67,7 +74,7 @@ describe("Wallet Routes", () => {
         },
       });
 
-      // expect(response.statusCode).toBe(200);
+      expect(response.statusCode).toBe(200);
       expect(JSON.parse(response.payload)).toEqual({ jobId: mockJobId });
     });
 
@@ -85,7 +92,8 @@ describe("Wallet Routes", () => {
   describe("POST /wallet/send", () => {
     const mockWallet = {
       id: "test-wallet-id",
-      mnemonic: TEST_MNEMONIC,
+      encryptedMnemonic: "encrypted-test-mnemonic",
+      iv: randomBytes(16).toString("hex"),
       derivationPath: "m/44'/60'/0'/0",
       currentIndex: 0,
       userId: mockUser.userId,
@@ -95,6 +103,8 @@ describe("Wallet Routes", () => {
 
     it("should send transaction successfully", async () => {
       vi.mocked(db.wallet.findFirst).mockResolvedValue(mockWallet);
+      vi.mocked(decrypt).mockReturnValue("test-mnemonic");
+      vi.mocked(derivePrivateKey).mockResolvedValue("0xprivatekey" as `0x${string}`);
       vi.mocked(sendTransaction).mockResolvedValue("0xtxhash");
 
       const response = await app.inject({
@@ -113,6 +123,14 @@ describe("Wallet Routes", () => {
       expect(JSON.parse(response.payload)).toEqual({
         transactionHash: "0xtxhash",
       });
+
+      expect(decrypt).toHaveBeenCalledWith(mockWallet.encryptedMnemonic, mockWallet.iv);
+      expect(derivePrivateKey).toHaveBeenCalledWith("test-mnemonic");
+      expect(sendTransaction).toHaveBeenCalledWith(
+        "0xrecipient",
+        BigInt("1000000000000000000"),
+        "0xprivatekey"
+      );
     });
 
     it("should return 400 when parameters are missing", async () => {
@@ -135,7 +153,8 @@ describe("Wallet Routes", () => {
   describe("POST /wallet/sign", () => {
     const mockWallet = {
       id: "test-wallet-id",
-      mnemonic: TEST_MNEMONIC,
+      encryptedMnemonic: "encrypted-test-mnemonic",
+      iv: randomBytes(16).toString("hex"),
       derivationPath: "m/44'/60'/0'/0",
       currentIndex: 0,
       userId: mockUser.userId,
@@ -145,6 +164,8 @@ describe("Wallet Routes", () => {
 
     it("should sign message successfully", async () => {
       vi.mocked(db.wallet.findFirst).mockResolvedValue(mockWallet);
+      vi.mocked(decrypt).mockReturnValue("test-mnemonic");
+      vi.mocked(derivePrivateKey).mockResolvedValue("0xprivatekey" as `0x${string}`);
       vi.mocked(signMessage).mockResolvedValue("0xsignature");
 
       const response = await app.inject({
@@ -232,7 +253,8 @@ describe("Wallet Routes", () => {
   describe("GET /wallet", () => {
     const mockWalletResponse = {
       id: "wallet-id",
-      mnemonic: TEST_MNEMONIC,
+      encryptedMnemonic: "encrypted-test-mnemonic",
+      iv: randomBytes(16).toString("hex"),
       derivationPath: "m/44'/60'/0'/0",
       currentIndex: 0,
       userId: mockUser.userId,
@@ -240,6 +262,7 @@ describe("Wallet Routes", () => {
       updatedAt: new Date().toISOString(),
       accounts: [],
     };
+
     it("should fetch wallet successfully", async () => {
       vi.mocked(db.wallet.findUnique).mockResolvedValue({
         ...mockWalletResponse,

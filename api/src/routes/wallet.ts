@@ -1,9 +1,7 @@
-import { mnemonicToSeed } from "@scure/bip39";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { HDKey } from "viem/accounts";
 import { db } from "../../db";
 import { mnemonicQueue } from "../config/queue";
-import { DEFAULT_DERIVATION_PATH } from "../constants";
+import { decrypt, derivePrivateKey } from "../lib/crypto";
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
 import { queueMnemonicGeneration } from "../services/wallet";
 
@@ -47,17 +45,7 @@ const handleAuthenticatedRequest = (
   return true;
 };
 
-const derivePrivateKey = async (mnemonic: string) => {
-  const seed = await mnemonicToSeed(mnemonic);
-  const hdKey = HDKey.fromMasterSeed(seed);
-  const child = hdKey.derive(DEFAULT_DERIVATION_PATH);
 
-  if (!child.privateKey) {
-    throw new Error("Failed to generate private key");
-  }
-
-  return `0x${Buffer.from(child.privateKey).toString("hex")}` as `0x${string}`;
-};
 
 export const walletRoutes = async (fastify: FastifyInstance) => {
   fastify.post(
@@ -101,7 +89,9 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
           return reply.status(404).send({ error: "Wallet not found" });
         }
 
-        const privateKey = await derivePrivateKey(wallet.mnemonic);
+        const mnemonic = decrypt(wallet.encryptedMnemonic, wallet.iv);
+
+        const privateKey = await derivePrivateKey(mnemonic);
         const hash = await sendTransaction(
           to as `0x${string}`,
           BigInt(amount),
@@ -140,7 +130,9 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
           return reply.status(404).send({ error: "Account not found" });
         }
 
-        const privateKey = await derivePrivateKey(wallet.mnemonic);
+        const mnemonic = decrypt(wallet.encryptedMnemonic, wallet.iv);
+
+        const privateKey = await derivePrivateKey(mnemonic);
         const signedMessage = await signMessage(message, privateKey);
 
         return reply.send({ signedMessage });

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { HDKey } from "@scure/bip32";
 import {
   generateMnemonic as generateMnemonicBip39,
@@ -5,9 +6,10 @@ import {
 } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english";
 import { privateKeyToAccount } from "viem/accounts";
-import { DEFAULT_DERIVATION_PATH } from "../constants";
-import { mnemonicQueue } from "../config/queue";
 import { db } from "../../db";
+import { mnemonicQueue } from "../config/queue";
+import { DEFAULT_DERIVATION_PATH } from "../constants";
+import { encrypt } from "../lib/crypto";
 
 export const recoverWallet = async (
   mnemonic: string,
@@ -64,10 +66,15 @@ export async function createWalletWithMnemonic(userId: string) {
   const privateKey = `0x${Buffer.from(child.privateKey).toString("hex")}`;
   const account = privateKeyToAccount(privateKey as `0x${string}`);
 
+  const iv = randomBytes(16);
+
+  const { encryptedData } = encrypt(mnemonic, iv);
+
   const wallet = await db.wallet.create({
     data: {
       userId,
-      mnemonic,
+      encryptedMnemonic: encryptedData,
+      iv: iv.toString("hex"),
       derivationPath: DEFAULT_DERIVATION_PATH,
       currentIndex,
     },

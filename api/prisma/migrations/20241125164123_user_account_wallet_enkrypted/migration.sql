@@ -11,7 +11,8 @@ CREATE TABLE "User" (
 -- CreateTable
 CREATE TABLE "Wallet" (
     "id" TEXT NOT NULL,
-    "mnemonic" TEXT NOT NULL,
+    "encryptedMnemonic" TEXT NOT NULL,
+    "iv" TEXT NOT NULL,
     "derivationPath" TEXT NOT NULL,
     "currentIndex" INTEGER NOT NULL DEFAULT 0,
     "userId" TEXT NOT NULL,
@@ -39,7 +40,7 @@ CREATE TABLE "Account" (
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Wallet_mnemonic_key" ON "Wallet"("mnemonic");
+CREATE UNIQUE INDEX "Wallet_encryptedMnemonic_key" ON "Wallet"("encryptedMnemonic");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Wallet_userId_key" ON "Wallet"("userId");
