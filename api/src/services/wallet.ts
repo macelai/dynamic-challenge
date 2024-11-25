@@ -115,8 +115,8 @@ export async function deriveAccountFromMnemonic(
   const seed = await mnemonicToSeed(mnemonic);
   const hdKey = HDKey.fromMasterSeed(seed);
 
-  const derivationPath = `${DEFAULT_DERIVATION_PATH}/${index}`;
-  const child = hdKey.derive(derivationPath);
+  const path = DEFAULT_DERIVATION_PATH.slice(0, -1) + index;
+  const child = hdKey.derive(path);
 
   if (!child.privateKey) {
     throw new Error("Failed to generate private key");

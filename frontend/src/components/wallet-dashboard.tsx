@@ -49,10 +49,11 @@ export function WalletDashboard() {
     data: balance,
     refetch: refetchBalance,
     isLoading: isBalanceLoading,
+    isFetching: isBalanceFetching
   } = useWalletBalance(selectedWallet?.index, authToken || "");
 
-  const signMessageMutation = useSignMessage(authToken || "");
-  const sendTransactionMutation = useSendTransaction(authToken || "");
+  const { data: signedMessage, mutateAsync: signMessage, isPending: isSigningMessage } = useSignMessage(authToken || "");
+  const { data: transactionHash, mutateAsync: sendTransaction, isPending: isSendingTransaction } = useSendTransaction(authToken || "");
   const { mutateAsync: generateWallet, isPending: isGeneratingWallet } =
     useGenerateWallet(authToken || "");
   const { data: walletData, isLoading: isWalletLoading } = useWallet(
@@ -68,7 +69,7 @@ export function WalletDashboard() {
 
   const handleSignMessage = () => {
     if (!selectedWallet?.id || !message) return;
-    signMessageMutation.mutate({ walletId: selectedWallet.id, message });
+    signMessage({ walletId: selectedWallet.id, message, index: selectedWallet.index });
   };
 
   const handleSendTransaction = () => {
@@ -76,9 +77,10 @@ export function WalletDashboard() {
     const recipientAddress = recipient === "custom" ? customRecipient : recipient;
     if (!recipientAddress) return;
 
-    sendTransactionMutation.mutate({
+    sendTransaction({
       to: recipientAddress,
       amount: parseUnits(amount, 18).toString(),
+      index: selectedWallet?.index || 0,
     });
   };
 
@@ -184,9 +186,9 @@ export function WalletDashboard() {
                 <CardFooter>
                   <Button
                     onClick={() => refetchBalance()}
-                    disabled={isBalanceLoading}
+                    disabled={isBalanceLoading || isBalanceFetching}
                   >
-                    {isBalanceLoading ? "Fetching..." : "Get Balance"}
+                    {isBalanceLoading || isBalanceFetching ? "Fetching..." : "Get Balance"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -205,11 +207,11 @@ export function WalletDashboard() {
                       onChange={(e) => setMessage(e.target.value)}
                     />
                   </div>
-                  {signMessageMutation.data && (
+                  {signedMessage && (
                     <div className="space-y-1">
                       <Label>Signed Message</Label>
                       <p className="text-sm break-all">
-                        {signMessageMutation.data.signedMessage}
+                        {signedMessage.signedMessage}
                       </p>
                     </div>
                   )}
@@ -217,9 +219,9 @@ export function WalletDashboard() {
                 <CardFooter>
                   <Button
                     onClick={handleSignMessage}
-                    disabled={signMessageMutation.isPending || !message}
+                    disabled={isSigningMessage || !message}
                   >
-                    {signMessageMutation.isPending
+                    {isSigningMessage
                       ? "Signing..."
                       : "Sign Message"}
                   </Button>
@@ -281,11 +283,11 @@ export function WalletDashboard() {
                       onChange={(e) => setAmount(e.target.value)}
                     />
                   </div>
-                  {sendTransactionMutation.data && (
+                  {transactionHash && (
                     <div className="space-y-1">
                       <Label>Transaction Hash</Label>
                       <p className="text-sm">
-                        {sendTransactionMutation.data.transactionHash}
+                        {transactionHash.transactionHash}
                       </p>
                     </div>
                   )}
@@ -294,12 +296,12 @@ export function WalletDashboard() {
                   <Button
                     onClick={handleSendTransaction}
                     disabled={
-                      sendTransactionMutation.isPending ||
+                      isSendingTransaction ||
                       !amount ||
                       (recipient === "custom" ? !customRecipient : !recipient)
                     }
                   >
-                    {sendTransactionMutation.isPending
+                    {isSendingTransaction
                       ? "Sending..."
                       : "Send Transaction"}
                   </Button>

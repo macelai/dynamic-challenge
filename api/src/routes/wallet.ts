@@ -2,9 +2,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../../db";
 import { decrypt, derivePrivateKey } from "../lib/crypto";
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
-import { mnemonicQueue, queueMnemonicGeneration } from '../queues/producers/mnemonic.queue';
-import type { RawRequestWithUser, User } from "../types/auth";
 import { queueAccountGeneration } from "../queues/producers/account.queue";
+import type { RawRequestWithUser, User } from "../types/auth";
 
 const handleAuthenticatedRequest = (
   user: User | undefined,

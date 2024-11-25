@@ -104,14 +104,14 @@ export function useWalletBalance(index: number | undefined, authToken: string) {
 
 export function useSignMessage(authToken: string) {
   return useMutation({
-    mutationFn: async ({ walletId, message }: { walletId: string; message: string }) => {
+    mutationFn: async ({ walletId, message, index }: { walletId: string; message: string, index: number }) => {
       const response = await fetch(`${BASE_URL}/wallet/sign`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ walletId, message })
+        body: JSON.stringify({ walletId, message, index  })
       })
 
       if (!response.ok) {
@@ -127,15 +127,14 @@ export function useSignMessage(authToken: string) {
 
 export function useSendTransaction(authToken: string) {
   return useMutation({
-    mutationFn: async ({ to, amount }: { to: string; amount: string }) => {
-      console.log(JSON.stringify({ to, amount }));
+    mutationFn: async ({ to, amount, index }: { to: string; amount: string; index: number }) => {
       const response = await fetch(`${BASE_URL}/wallet/send`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ to, amount })
+        body: JSON.stringify({ to, amount, index })
       })
 
       if (!response.ok) {
