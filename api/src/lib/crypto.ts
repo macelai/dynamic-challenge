@@ -11,10 +11,12 @@ const key = Buffer.from(process.env.ENCRYPTION_KEY || "", "hex");
  * @param mnemonic - The mnemonic to derive the private key from
  * @returns The private key
  */
-export const derivePrivateKey = async (mnemonic: string) => {
+export const derivePrivateKey = async (mnemonic: string, index: number) => {
   const seed = await mnemonicToSeed(mnemonic);
   const hdKey = HDKey.fromMasterSeed(seed);
-  const child = hdKey.derive(DEFAULT_DERIVATION_PATH);
+
+  const path = DEFAULT_DERIVATION_PATH.slice(0, -1) + index;
+  const child = hdKey.derive(path);
 
   if (!child.privateKey) {
     throw new Error("Failed to generate private key");

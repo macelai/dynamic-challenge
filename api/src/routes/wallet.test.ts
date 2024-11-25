@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
 import { randomBytes } from "node:crypto";
 import { decrypt, derivePrivateKey } from "../lib/crypto";
-import { queueMnemonicGeneration } from "../queues/producers/mnemonic.queue";
+import { queueAccountGeneration } from "../queues/producers/account.queue";
 
 // Mock external dependencies
 vi.mock("../../db", () => ({
@@ -33,8 +33,8 @@ vi.mock("../config/queue", () => ({
   }
 }));
 
-vi.mock("../queues/producers/mnemonic.queue", () => ({
-  queueMnemonicGeneration: vi.fn(),
+vi.mock("../queues/producers/account.queue", () => ({
+  queueAccountGeneration: vi.fn(),
 }));
 
 vi.mock("../lib/crypto", () => ({
@@ -42,11 +42,34 @@ vi.mock("../lib/crypto", () => ({
   derivePrivateKey: vi.fn(),
 }));
 
+
+
 describe("Wallet Routes", () => {
   let app: FastifyInstance;
   const mockUser = {
     userId: "test-user-id",
     email: "test@example.com"
+  };
+
+  const mockAccount = {
+    id: "test-account-id",
+    name: null,
+    address: "0xaddress",
+    userId: mockUser.userId,
+    index: 0,
+    walletId: "test-wallet-id",
+    wallet: {
+      id: "test-wallet-id",
+      encryptedMnemonic: "encrypted-test-mnemonic",
+      iv: randomBytes(16).toString("hex"),
+      derivationPath: "m/44'/60'/0'/0",
+      currentIndex: 0,
+      userId: mockUser.userId,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    createdAt: new Date(),
+    updatedAt: new Date()
   };
 
   beforeEach(async () => {
@@ -59,14 +82,28 @@ describe("Wallet Routes", () => {
   });
 
   describe("POST /wallet/generate", () => {
-    it("should generate a new wallet successfully", async () => {
+    it("should generate a new account successfully", async () => {
       const mockJobId = "test-job-id";
-      vi.mocked(queueMnemonicGeneration).mockResolvedValue(mockJobId);
+      const mockWallet = {
+        id: "test-wallet-id",
+        encryptedMnemonic: "encrypted-test-mnemonic",
+        iv: randomBytes(16).toString("hex"),
+        derivationPath: "m/44'/60'/0'/0",
+        currentIndex: 0,
+        userId: mockUser.userId,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      vi.mocked(db.wallet.findFirst).mockResolvedValue(mockWallet);
+      vi.mocked(queueAccountGeneration).mockResolvedValue(mockJobId);
 
       const response = await app.inject({
         method: "POST",
         url: "/wallet/generate",
-        payload: {},
+        payload: {
+          name: "Test Account",
+        },
         headers: {
           "x-mock-user": JSON.stringify(mockUser),
         },
@@ -74,12 +111,23 @@ describe("Wallet Routes", () => {
 
       expect(response.statusCode).toBe(200);
       expect(JSON.parse(response.payload)).toEqual({ jobId: mockJobId });
+      expect(db.wallet.findFirst).toHaveBeenCalledWith({
+        where: { userId: mockUser.userId }
+      });
+      expect(queueAccountGeneration).toHaveBeenCalledWith(
+        mockUser.userId,
+        mockWallet.id,
+        "Test Account"
+      );
     });
 
     it("should return 401 when user is not authenticated", async () => {
       const response = await app.inject({
         method: "POST",
         url: "/wallet/generate",
+        payload: {
+          name: "Test Wallet",
+        },
       });
 
       expect(response.statusCode).toBe(401);
@@ -88,19 +136,8 @@ describe("Wallet Routes", () => {
   });
 
   describe("POST /wallet/send", () => {
-    const mockWallet = {
-      id: "test-wallet-id",
-      encryptedMnemonic: "encrypted-test-mnemonic",
-      iv: randomBytes(16).toString("hex"),
-      derivationPath: "m/44'/60'/0'/0",
-      currentIndex: 0,
-      userId: mockUser.userId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
     it("should send transaction successfully", async () => {
-      vi.mocked(db.wallet.findFirst).mockResolvedValue(mockWallet);
+      vi.mocked(db.account.findFirst).mockResolvedValue(mockAccount);
       vi.mocked(decrypt).mockReturnValue("test-mnemonic");
       vi.mocked(derivePrivateKey).mockResolvedValue("0xprivatekey" as `0x${string}`);
       vi.mocked(sendTransaction).mockResolvedValue("0xtxhash");
@@ -114,6 +151,7 @@ describe("Wallet Routes", () => {
         payload: {
           to: "0xrecipient",
           amount: "1000000000000000000",
+          index: 0,
         },
       });
 
@@ -122,8 +160,8 @@ describe("Wallet Routes", () => {
         transactionHash: "0xtxhash",
       });
 
-      expect(decrypt).toHaveBeenCalledWith(mockWallet.encryptedMnemonic, mockWallet.iv);
-      expect(derivePrivateKey).toHaveBeenCalledWith("test-mnemonic");
+      expect(decrypt).toHaveBeenCalledWith(mockAccount.wallet.encryptedMnemonic, mockAccount.wallet.iv);
+      expect(derivePrivateKey).toHaveBeenCalledWith("test-mnemonic", 0);
       expect(sendTransaction).toHaveBeenCalledWith(
         "0xrecipient",
         BigInt("1000000000000000000"),
@@ -149,19 +187,8 @@ describe("Wallet Routes", () => {
   });
 
   describe("POST /wallet/sign", () => {
-    const mockWallet = {
-      id: "test-wallet-id",
-      encryptedMnemonic: "encrypted-test-mnemonic",
-      iv: randomBytes(16).toString("hex"),
-      derivationPath: "m/44'/60'/0'/0",
-      currentIndex: 0,
-      userId: mockUser.userId,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
     it("should sign message successfully", async () => {
-      vi.mocked(db.wallet.findFirst).mockResolvedValue(mockWallet);
+      vi.mocked(db.account.findFirst).mockResolvedValue(mockAccount);
       vi.mocked(decrypt).mockReturnValue("test-mnemonic");
       vi.mocked(derivePrivateKey).mockResolvedValue("0xprivatekey" as `0x${string}`);
       vi.mocked(signMessage).mockResolvedValue("0xsignature");
@@ -174,6 +201,7 @@ describe("Wallet Routes", () => {
         },
         payload: {
           message: "Hello World",
+          index: 0,
         },
       });
 
@@ -201,17 +229,6 @@ describe("Wallet Routes", () => {
   });
 
   describe("GET /wallet/balance/:index", () => {
-    const mockAccount = {
-      id: "test-account-id",
-      name: null,
-      address: "0xaddress",
-      userId: mockUser.userId,
-      index: 0,
-      walletId: "test-wallet-id",
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
     it("should fetch balance successfully", async () => {
       vi.mocked(db.account.findFirst).mockResolvedValue(mockAccount);
       vi.mocked(getBalance).mockResolvedValue(BigInt(1000000000000000000));

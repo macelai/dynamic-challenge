@@ -56,25 +56,31 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
 
         if (!handleAuthenticatedRequest(user, reply)) return;
 
-        const { to, amount } = request.body as { to: string; amount: string };
+        const { to, amount, index } = request.body as { to: string; amount: string; index: number };
 
-        if (!to || !amount) {
+        if (!to || !amount || typeof index !== 'number') {
           return reply
             .status(400)
             .send({ error: "Missing required parameters" });
         }
 
-        const wallet = await db.wallet.findFirst({
-          where: { userId: user.userId },
+        const account = await db.account.findFirst({
+          where: {
+            userId: user.userId,
+            index
+          },
+          include: {
+            wallet: true
+          }
         });
 
-        if (!wallet) {
-          return reply.status(404).send({ error: "Wallet not found" });
+        if (!account?.wallet) {
+          return reply.status(404).send({ error: "Account not found" });
         }
 
-        const mnemonic = decrypt(wallet.encryptedMnemonic, wallet.iv);
+        const mnemonic = decrypt(account.wallet.encryptedMnemonic, account.wallet.iv);
 
-        const privateKey = await derivePrivateKey(mnemonic);
+        const privateKey = await derivePrivateKey(mnemonic, index);
         const hash = await sendTransaction(
           to as `0x${string}`,
           BigInt(amount),
@@ -97,25 +103,34 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
 
         if (!handleAuthenticatedRequest(user, reply)) return;
 
-        const { message } = request.body as { message: string };
+        const { message, index } = request.body as { message: string; index: number };
 
-        if (!message) {
+        if (!message || typeof index !== 'number') {
           return reply
             .status(400)
             .send({ error: "Missing required parameters" });
         }
 
-        const wallet = await db.wallet.findFirst({
-          where: { userId: user.userId },
+        const account = await db.account.findFirst({
+          where: {
+            userId: user.userId,
+            index,
+          },
+          include: {
+            wallet: true,
+          },
         });
 
-        if (!wallet) {
+        if (!account?.wallet) {
           return reply.status(404).send({ error: "Account not found" });
         }
 
-        const mnemonic = decrypt(wallet.encryptedMnemonic, wallet.iv);
+        const mnemonic = decrypt(
+          account.wallet.encryptedMnemonic,
+          account.wallet.iv
+        );
 
-        const privateKey = await derivePrivateKey(mnemonic);
+        const privateKey = await derivePrivateKey(mnemonic, index);
         const signedMessage = await signMessage(message, privateKey);
 
         return reply.send({ signedMessage });
