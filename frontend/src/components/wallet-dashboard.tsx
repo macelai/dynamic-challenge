@@ -1,35 +1,65 @@
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useWalletBalance, useSignMessage, useGenerateWallet, useWallet, useSendTransaction, type Wallet } from "@/hooks/use-wallet"
-import { CopyIcon, useDynamicContext } from "@dynamic-labs/sdk-react-core"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  type Wallet,
+  useGenerateWallet,
+  useSendTransaction,
+  useSignMessage,
+  useWallet,
+  useWalletBalance,
+} from "@/hooks/use-wallet";
+import { CopyIcon, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { formatUnits, parseUnits } from "viem";
-import { useNavigate } from "react-router-dom"
 
 export function WalletDashboard() {
   const { authToken } = useDynamicContext();
-  const navigate = useNavigate()
-  const [message, setMessage] = useState("")
-  const [recipient, setRecipient] = useState("")
-  const [amount, setAmount] = useState("")
-  const [selectedWallet, setSelectedWallet] = useState<Wallet['accounts'][0] | null>(null)
+  const navigate = useNavigate();
+  const [message, setMessage] = useState("");
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState("");
+  const [newWalletName, setNewWalletName] = useState("");
+  const [selectedWallet, setSelectedWallet] = useState<
+    Wallet["accounts"][0] | null
+  >(null);
+  const [customRecipient, setCustomRecipient] = useState("");
 
   const {
     data: balance,
     refetch: refetchBalance,
     isLoading: isBalanceLoading,
-  } = useWalletBalance(selectedWallet?.index, authToken || '')
+  } = useWalletBalance(selectedWallet?.index, authToken || "");
 
-  const signMessageMutation = useSignMessage(authToken || '')
-  const sendTransactionMutation = useSendTransaction(authToken || '')
-  const generateWalletMutation = useGenerateWallet(authToken || '')
-  const { data: walletData, isLoading: isWalletLoading } = useWallet(authToken || '')
+  const signMessageMutation = useSignMessage(authToken || "");
+  const sendTransactionMutation = useSendTransaction(authToken || "");
+  const { mutateAsync: generateWallet, isPending: isGeneratingWallet } =
+    useGenerateWallet(authToken || "");
+  const { data: walletData, isLoading: isWalletLoading } = useWallet(
+    authToken || ""
+  );
 
-  const wallets = walletData?.accounts
+  const wallets = walletData?.accounts;
 
   if (!authToken) {
     navigate("/login");
@@ -37,18 +67,20 @@ export function WalletDashboard() {
   }
 
   const handleSignMessage = () => {
-    if (!selectedWallet?.id || !message) return
-    signMessageMutation.mutate({ walletId: selectedWallet.id, message })
-  }
-
+    if (!selectedWallet?.id || !message) return;
+    signMessageMutation.mutate({ walletId: selectedWallet.id, message });
+  };
 
   const handleSendTransaction = () => {
-    if (!recipient || !amount) return
+    if (!amount) return;
+    const recipientAddress = recipient === "custom" ? customRecipient : recipient;
+    if (!recipientAddress) return;
+
     sendTransactionMutation.mutate({
-      to: recipient,
-      amount: parseUnits(amount, 18).toString()
-    })
-  }
+      to: recipientAddress,
+      amount: parseUnits(amount, 18).toString(),
+    });
+  };
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
@@ -66,7 +98,9 @@ export function WalletDashboard() {
               <>
                 <Select
                   onValueChange={(value) => {
-                    const selectedWallet = wallets?.find(wallet => wallet.id === value);
+                    const selectedWallet = wallets?.find(
+                      (wallet) => wallet.id === value
+                    );
                     if (selectedWallet) {
                       setSelectedWallet(selectedWallet);
                     }
@@ -79,7 +113,9 @@ export function WalletDashboard() {
                   <SelectContent>
                     {wallets?.map((wallet) => (
                       <SelectItem key={wallet.id} value={wallet.id}>
-                        {wallet.name || `Account ${wallet.index}`} ({wallet.address.slice(0,6)}...{wallet.address.slice(-4)})
+                        {wallet.name || `Account ${wallet.index}`} (
+                        {wallet.address.slice(0, 6)}...
+                        {wallet.address.slice(-4)})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -88,11 +124,16 @@ export function WalletDashboard() {
                 {selectedWallet && (
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
-                      <p><span className="font-medium">Address:</span> {selectedWallet.address}</p>
+                      <p>
+                        <span className="font-medium">Address:</span>{" "}
+                        {selectedWallet.address}
+                      </p>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigator.clipboard.writeText(selectedWallet.address)}
+                        onClick={() =>
+                          navigator.clipboard.writeText(selectedWallet.address)
+                        }
                       >
                         <CopyIcon className="h-4 w-4" />
                       </Button>
@@ -102,13 +143,24 @@ export function WalletDashboard() {
               </>
             )}
           </div>
-          <Button
-            onClick={() => generateWalletMutation.mutate()}
-            className="w-full"
-            disabled={isWalletLoading}
-          >
-            {isWalletLoading ? "Loading..." : "Generate New Wallet"}
-          </Button>
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <Label htmlFor="new-wallet-name">New Wallet Name</Label>
+              <Input
+                id="new-wallet-name"
+                placeholder="Enter wallet name"
+                value={newWalletName}
+                onChange={(e) => setNewWalletName(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={() => generateWallet({ name: newWalletName })}
+              className="w-full"
+              disabled={isGeneratingWallet}
+            >
+              {isGeneratingWallet ? "Generating..." : "Generate New Wallet"}
+            </Button>
+          </div>
         </div>
         {selectedWallet ? (
           <Tabs defaultValue="balance" className="w-full">
@@ -124,11 +176,16 @@ export function WalletDashboard() {
                 </CardHeader>
                 <CardContent>
                   {balance && (
-                    <p className="text-2xl font-bold">{formatUnits(BigInt(balance), 18)} ETH</p>
+                    <p className="text-2xl font-bold">
+                      {formatUnits(BigInt(balance), 18)} ETH
+                    </p>
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button onClick={() => refetchBalance()} disabled={isBalanceLoading}>
+                  <Button
+                    onClick={() => refetchBalance()}
+                    disabled={isBalanceLoading}
+                  >
                     {isBalanceLoading ? "Fetching..." : "Get Balance"}
                   </Button>
                 </CardFooter>
@@ -151,7 +208,9 @@ export function WalletDashboard() {
                   {signMessageMutation.data && (
                     <div className="space-y-1">
                       <Label>Signed Message</Label>
-                      <p className="text-sm break-all">{signMessageMutation.data.signedMessage}</p>
+                      <p className="text-sm break-all">
+                        {signMessageMutation.data.signedMessage}
+                      </p>
                     </div>
                   )}
                 </CardContent>
@@ -160,7 +219,9 @@ export function WalletDashboard() {
                     onClick={handleSignMessage}
                     disabled={signMessageMutation.isPending || !message}
                   >
-                    {signMessageMutation.isPending ? "Signing..." : "Sign Message"}
+                    {signMessageMutation.isPending
+                      ? "Signing..."
+                      : "Sign Message"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -173,11 +234,43 @@ export function WalletDashboard() {
                 <CardContent className="space-y-2">
                   <div className="space-y-1">
                     <Label htmlFor="recipient">Recipient Address</Label>
-                    <Input
-                      id="recipient"
-                      value={recipient}
-                      onChange={(e) => setRecipient(e.target.value)}
-                    />
+                    <div className="flex gap-2">
+                      <Select value={recipient} onValueChange={setRecipient}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select recipient" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Your Accounts</SelectLabel>
+                            {wallets
+                              ?.filter((wallet) => wallet.id !== selectedWallet?.id)
+                              .map((account) => (
+                                <SelectItem
+                                  key={account.id}
+                                  value={account.address}
+                                >
+                                  {account.name || `Account ${account.index}`} (
+                                  {account.address})
+                                </SelectItem>
+                            ))}
+                            <SelectSeparator />
+                            <SelectLabel>Custom Address</SelectLabel>
+                            <SelectItem value="custom">
+                              Enter custom address
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {recipient === "custom" && (
+                      <Input
+                        id="custom-recipient"
+                        placeholder="Enter recipient address"
+                        value={customRecipient}
+                        onChange={(e) => setCustomRecipient(e.target.value)}
+                        className="mt-2"
+                      />
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label htmlFor="amount">Amount (ETH)</Label>
@@ -191,16 +284,24 @@ export function WalletDashboard() {
                   {sendTransactionMutation.data && (
                     <div className="space-y-1">
                       <Label>Transaction Hash</Label>
-                      <p className="text-sm">{sendTransactionMutation.data.transactionHash}</p>
+                      <p className="text-sm">
+                        {sendTransactionMutation.data.transactionHash}
+                      </p>
                     </div>
                   )}
                 </CardContent>
                 <CardFooter>
                   <Button
                     onClick={handleSendTransaction}
-                    disabled={sendTransactionMutation.isPending || !recipient || !amount}
+                    disabled={
+                      sendTransactionMutation.isPending ||
+                      !amount ||
+                      (recipient === "custom" ? !customRecipient : !recipient)
+                    }
                   >
-                    {sendTransactionMutation.isPending ? "Sending..." : "Send Transaction"}
+                    {sendTransactionMutation.isPending
+                      ? "Sending..."
+                      : "Send Transaction"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -211,5 +312,5 @@ export function WalletDashboard() {
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

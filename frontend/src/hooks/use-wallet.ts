@@ -35,14 +35,14 @@ export type Wallet = z.infer<typeof walletSchema>
 
 export function useGenerateWallet(authToken: string) {
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ name }: { name: string }) => {
       const response = await fetch(`${BASE_URL}/wallet/generate`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({ name })
       })
 
       if (!response.ok) {
