@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { build } from "../test-utils/build-server";
-import { db } from "../../db";
-import { queueMnemonicGeneration } from "../services/wallet";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { db } from "../../db";
+import { build } from "../test-utils/build-server";
+import { queueMnemonicGeneration } from "../queues/producers/mnemonic.queue";
 
 vi.mock("../../db", () => ({
   db: {
@@ -12,7 +12,7 @@ vi.mock("../../db", () => ({
     }
   }
 }));
-vi.mock("../services/wallet");
+vi.mock("../queues/producers/mnemonic.queue");
 
 describe("User Routes", () => {
   let app: FastifyInstance;

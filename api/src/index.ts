@@ -1,9 +1,10 @@
-import Fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
+import Fastify from 'fastify';
 import { configurePassport } from "./config/passport";
-import { type RawRequestWithUser, walletRoutes } from "./routes/wallet";
+import { setupMnemonicWorker } from './queues/workers/mnemonic.worker';
 import { userRoutes } from "./routes/user";
-import { setupMnemonicWorker } from './config/queue';
+import { walletRoutes } from "./routes/wallet";
+import type { RawRequestWithUser } from './types/auth';
 
 const fastify = Fastify();
 

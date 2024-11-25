@@ -4,9 +4,9 @@ import { db } from "../../db";
 import { mnemonicQueue } from "../config/queue";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
-import { queueMnemonicGeneration } from "../services/wallet";
 import { randomBytes } from "node:crypto";
 import { decrypt, derivePrivateKey } from "../lib/crypto";
+import { queueMnemonicGeneration } from "../queues/producers/mnemonic.queue";
 
 // Mock external dependencies
 vi.mock("../../db", () => ({
@@ -33,7 +33,7 @@ vi.mock("../config/queue", () => ({
   }
 }));
 
-vi.mock("../services/wallet", () => ({
+vi.mock("../queues/producers/mnemonic.queue", () => ({
   queueMnemonicGeneration: vi.fn(),
 }));
 
@@ -41,8 +41,6 @@ vi.mock("../lib/crypto", () => ({
   decrypt: vi.fn(),
   derivePrivateKey: vi.fn(),
 }));
-
-const TEST_MNEMONIC = "test test test test test test test test test test test junk"; // Valid BIP39 mnemonic
 
 describe("Wallet Routes", () => {
   let app: FastifyInstance;
@@ -296,41 +294,6 @@ describe("Wallet Routes", () => {
       expect(response.statusCode).toBe(404);
       expect(JSON.parse(response.payload)).toEqual({
         error: "Wallet not found",
-      });
-    });
-  });
-
-  describe("GET /mnemonic-status/:jobId", () => {
-    it("should return job status when job exists", async () => {
-      const mockJob = {
-        getState: vi.fn().mockResolvedValue("completed"),
-        returnvalue: { address: "0xaddress" },
-      };
-      vi.mocked(mnemonicQueue.getJob).mockResolvedValue(mockJob);
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/mnemonic-status/test-job-id",
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(JSON.parse(response.payload)).toEqual({
-        status: "completed",
-        result: { address: "0xaddress" },
-      });
-    });
-
-    it("should return 404 when job is not found", async () => {
-      vi.mocked(mnemonicQueue.getJob).mockResolvedValue(null);
-
-      const response = await app.inject({
-        method: "GET",
-        url: "/mnemonic-status/test-job-id",
-      });
-
-      expect(response.statusCode).toBe(404);
-      expect(JSON.parse(response.payload)).toEqual({
-        error: "Job not found",
       });
     });
   });

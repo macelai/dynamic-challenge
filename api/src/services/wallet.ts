@@ -7,48 +7,8 @@ import {
 import { wordlist } from "@scure/bip39/wordlists/english";
 import { privateKeyToAccount } from "viem/accounts";
 import { db } from "../../db";
-import { mnemonicQueue } from "../config/queue";
 import { DEFAULT_DERIVATION_PATH } from "../constants";
 import { encrypt } from "../lib/crypto";
-
-export const recoverWallet = async (
-  mnemonic: string,
-  path = DEFAULT_DERIVATION_PATH
-) => {
-  const seed = await mnemonicToSeed(mnemonic);
-  const hdKey = HDKey.fromMasterSeed(seed);
-  const child = hdKey.derive(path);
-
-  if (!child.privateKey) {
-    throw new Error("Failed to recover private key");
-  }
-
-  const privateKey = `0x${Buffer.from(child.privateKey).toString("hex")}`;
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
-
-  return {
-    address: account.address,
-    privateKey,
-  };
-};
-
-export async function queueMnemonicGeneration(userId: string) {
-  const job = await mnemonicQueue.add(
-    "generate-mnemonic",
-    {
-      userId,
-    },
-    {
-      attempts: 3,
-      backoff: {
-        type: "exponential",
-        delay: 1000,
-      },
-    }
-  );
-
-  return job.id;
-}
 
 export async function createWalletWithMnemonic(userId: string) {
   const mnemonic = generateMnemonicBip39(wordlist);

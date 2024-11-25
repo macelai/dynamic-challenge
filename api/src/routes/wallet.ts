@@ -1,38 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { db } from "../../db";
-import { mnemonicQueue } from "../config/queue";
 import { decrypt, derivePrivateKey } from "../lib/crypto";
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
-import { queueMnemonicGeneration } from "../services/wallet";
-
-export type VerifiedCredential = {
-  address: string;
-  chain: string;
-  id: string;
-  name_service: unknown;
-  public_identifier: string;
-  wallet_name: string;
-  wallet_provider: string;
-  format: string;
-};
-
-export type User = {
-  userId: string;
-  kid: string;
-  aud: string;
-  iss: string;
-  sub: string;
-  sid: string;
-  email: string;
-  environment_id: string;
-  lists: unknown[];
-  missing_fields: unknown[];
-  verified_credentials: VerifiedCredential[];
-};
-
-export type RawRequestWithUser = {
-  user: User;
-};
+import { mnemonicQueue, queueMnemonicGeneration } from '../queues/producers/mnemonic.queue';
+import type { RawRequestWithUser, User } from "../types/auth";
 
 const handleAuthenticatedRequest = (
   user: User | undefined,
@@ -44,8 +15,6 @@ const handleAuthenticatedRequest = (
   }
   return true;
 };
-
-
 
 export const walletRoutes = async (fastify: FastifyInstance) => {
   fastify.post(
@@ -215,21 +184,4 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
       }
     }
   );
-
-  fastify.get("/mnemonic-status/:jobId", async (request, reply) => {
-    const { jobId } = request.params as { jobId: string };
-    const job = await mnemonicQueue.getJob(jobId);
-
-    if (!job) {
-      return reply.code(404).send({ error: "Job not found" });
-    }
-
-    const state = await job.getState();
-    const result = job.returnvalue;
-
-    return reply.send({
-      status: state,
-      result: state === "completed" ? result : null,
-    });
-  });
 };
