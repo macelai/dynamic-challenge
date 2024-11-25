@@ -5,7 +5,7 @@ import {
   getAuthToken,
 } from "@dynamic-labs/sdk-react-core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./components/theme-provider";
 import DashboardPage from "./pages/dashboard";
 import LoginPage from "./pages/login";
@@ -59,6 +59,7 @@ export default function App() {
           <QueryClientProvider client={queryClient}>
             <div className="container mx-auto px-4">
               <Routes>
+                <Route path="/" element={<Navigate to="/login" replace />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
               </Routes>
