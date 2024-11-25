@@ -36,7 +36,7 @@ model Wallet {
 model Account {
   id       String  @id @default(uuid())
   address  String  @unique
-  name     String?
+  name     String? @default("Main")
   index    Int
   walletId String
   wallet   Wallet  @relation(fields: [walletId], references: [id])

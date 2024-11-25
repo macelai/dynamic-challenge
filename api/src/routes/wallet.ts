@@ -4,6 +4,7 @@ import { decrypt, derivePrivateKey } from "../lib/crypto";
 import { getBalance, sendTransaction, signMessage } from "../lib/viem-client";
 import { mnemonicQueue, queueMnemonicGeneration } from '../queues/producers/mnemonic.queue';
 import type { RawRequestWithUser, User } from "../types/auth";
+import { queueAccountGeneration } from "../queues/producers/account.queue";
 
 const handleAuthenticatedRequest = (
   user: User | undefined,
@@ -22,10 +23,23 @@ export const walletRoutes = async (fastify: FastifyInstance) => {
     async (request: FastifyRequest, reply: FastifyReply) => {
       try {
         const user = (request.raw as unknown as RawRequestWithUser).user;
+        const { name } = request.body as { name: string };
 
         if (!handleAuthenticatedRequest(user, reply)) return;
 
-        const jobId = await queueMnemonicGeneration(user.userId);
+        if (!name) {
+          return reply.status(400).send({ error: "Name is required" });
+        }
+
+        const wallet = await db.wallet.findFirst({
+          where: { userId: user.userId },
+        });
+
+        if (!wallet) {
+          return reply.status(404).send({ error: "Wallet not found" });
+        }
+
+        const jobId = await queueAccountGeneration(user.userId, wallet.id, name);
         return { jobId };
       } catch (error) {
         console.error("Error generating wallet:", error);

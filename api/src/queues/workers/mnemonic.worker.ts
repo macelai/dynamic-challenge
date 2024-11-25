@@ -7,13 +7,14 @@ interface MnemonicJobData {
   userId: string;
 }
 
-export const setupMnemonicWorker = () => {
+export const createMnemonicWorker = () => {
   const worker = new Worker<MnemonicJobData>(
     QUEUE_NAMES.MNEMONIC_GENERATION,
     async (job: Job<MnemonicJobData>) => {
       try {
         const { userId } = job.data;
         const mnemonic = await createWalletWithMnemonic(userId);
+
         return mnemonic;
       } catch (error) {
         console.error(`Error processing mnemonic generation for user ${job.data.userId}:`, error);
