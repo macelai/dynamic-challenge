@@ -1,8 +1,7 @@
 import type { ConnectionOptions } from 'bullmq';
 
 export const queueConnection: ConnectionOptions = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: Number(process.env.REDIS_PORT || '6379'),
+  url: process.env.REDIS_URL,
 };
 
 // Queue names as constants to avoid string literals

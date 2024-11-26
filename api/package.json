@@ -5,7 +5,8 @@
 		"test": "vitest",
 		"test:db:push": "DATABASE_URL=\"postgresql://postgres:postgres@localhost:5433/api_test\" prisma db push",
 		"test:db:migrate": "DATABASE_URL=\"postgresql://postgres:postgres@localhost:5433/api_test\" prisma migrate dev",
-		"dev": "bun run --watch src/index.ts"
+		"dev": "bun run --watch src/index.ts",
+		"start": "bunx prisma migrate deploy && bun run src/index.ts"
 	},
 	"dependencies": {
 		"@dynamic-labs/passport-dynamic": "^0.0.15",
