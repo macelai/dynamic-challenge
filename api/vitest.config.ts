@@ -5,9 +5,12 @@ export default defineConfig({
   test: {
     globals: true,
     setupFiles: ["src/test-utils/setup.ts"],
-    env: process.env.CI
-      ? require('dotenv').config({ path: ".env.ci" }).parsed
-      : require('dotenv').config({ path: ".env.test" }).parsed,
+    env: require('dotenv').config({ path: ".env.test" }).parsed,
+    sequence: {
+      hooks: 'list',
+      setupFiles: 'list'
+    },
+    fileParallelism: false,
     poolOptions: {
       threads: {
         singleThread: true,

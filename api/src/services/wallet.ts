@@ -17,31 +17,34 @@ export async function createWalletWithMnemonic(userId: string) {
   const { encryptedData } = encrypt(mnemonic, iv);
   const nextIndex = 1;
 
-  const wallet = await db.wallet.create({
-    data: {
-      userId,
-      encryptedMnemonic: encryptedData,
-      iv: iv.toString("hex"),
-      derivationPath: DEFAULT_DERIVATION_PATH,
-      currentIndex: nextIndex,
-    },
-  });
+  await db.$transaction(async (trx) => {
+    const user = await trx.user.findUnique({
+      where: { id: userId },
+    });
 
-  await db.account.create({
-    data: {
-      address,
-      index: 0,
-      wallet: {
-        connect: {
-          id: wallet.id,
-        },
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const wallet = await trx.wallet.create({
+      data: {
+        userId,
+        encryptedMnemonic: encryptedData,
+        iv: iv.toString("hex"),
+        derivationPath: DEFAULT_DERIVATION_PATH,
+        currentIndex: nextIndex,
       },
-      user: {
-        connect: {
-          id: userId,
-        },
+    });
+
+    await trx.account.create({
+      data: {
+        address,
+        index: 0,
+        walletId: wallet.id,
+        userId,
+        name: "Main",
       },
-    },
+    });
   });
 
   return mnemonic;
@@ -81,7 +84,7 @@ export async function createNewAccount(
   );
 
   await db.$transaction(async (trx) => {
-    await db.account.create({
+    await trx.account.create({
       data: {
         walletId,
         address: newAccount,
@@ -91,10 +94,12 @@ export async function createNewAccount(
       },
     });
 
-    await db.wallet.update({
+    await trx.wallet.update({
       where: { id: walletId },
       data: {
-        currentIndex: wallet.currentIndex + 1,
+        currentIndex: {
+          increment: 1,
+        },
       },
     });
   });

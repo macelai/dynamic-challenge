@@ -11,8 +11,20 @@ vi.mock("../queues/producers/mnemonic.queue", () => ({
 describe("User Routes", () => {
   let app: FastifyInstance;
   const mockUser = {
-    userId: "test-user-id",
-    email: "test@example.com",
+    userId: `user-${Date.now()}-${Math.random()}`,
+    email: `test-${Date.now()}@example.com`,
+  };
+
+  // Helper function to make authenticated requests
+  const makeAuthenticatedRequest = async (userHeader?: string) => {
+    return app.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: {},
+      headers: userHeader ? {
+        "x-mock-user": userHeader
+      } : undefined
+    });
   };
 
   beforeEach(async () => {
@@ -26,14 +38,7 @@ describe("User Routes", () => {
 
   describe("POST /auth/login", () => {
     it("should queue mnemonic generation for new user", async () => {
-      const response = await app.inject({
-        method: "POST",
-        url: "/auth/login",
-        payload: {},
-        headers: {
-          "x-mock-user": JSON.stringify(mockUser),
-        },
-      });
+      const response = await makeAuthenticatedRequest(JSON.stringify(mockUser));
 
       expect(response.statusCode).toBe(200);
       expect(queueMnemonicGeneration).toHaveBeenCalledWith(mockUser.userId);
@@ -41,7 +46,6 @@ describe("User Routes", () => {
     });
 
     it("should not queue mnemonic generation for existing user", async () => {
-      // Create user first
       await db.user.create({
         data: {
           id: mockUser.userId,
@@ -49,39 +53,21 @@ describe("User Routes", () => {
         },
       });
 
-      const response = await app.inject({
-        method: "POST",
-        url: "/auth/login",
-        payload: {},
-        headers: {
-          "x-mock-user": JSON.stringify(mockUser),
-        },
-      });
+      const response = await makeAuthenticatedRequest(JSON.stringify(mockUser));
 
       expect(response.statusCode).toBe(200);
       expect(queueMnemonicGeneration).not.toHaveBeenCalled();
     });
 
     it("should not queue mnemonic generation when user data is missing", async () => {
-      const response = await app.inject({
-        method: "POST",
-        url: "/auth/login",
-        payload: {},
-      });
+      const response = await makeAuthenticatedRequest();
 
       expect(response.statusCode).toBe(500);
       expect(queueMnemonicGeneration).not.toHaveBeenCalled();
     });
 
     it("should not queue mnemonic generation with invalid user data", async () => {
-      const response = await app.inject({
-        method: "POST",
-        url: "/auth/login",
-        payload: {},
-        headers: {
-          "x-mock-user": "invalid-json",
-        },
-      });
+      const response = await makeAuthenticatedRequest("invalid-json");
 
       expect(response.statusCode).toBe(500);
       expect(queueMnemonicGeneration).not.toHaveBeenCalled();

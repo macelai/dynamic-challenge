@@ -1,15 +1,18 @@
-import { beforeEach } from "vitest";
-import { db } from "../../db";
+import { beforeAll, afterAll, afterEach, beforeEach } from 'vitest';
+import { db } from '../../db';
 
+beforeAll(async () => {
+  await db.$connect();
+});
 
-const resetDb = async () => {
+beforeEach(async () => {
   await db.$transaction([
     db.account.deleteMany(),
     db.wallet.deleteMany(),
     db.user.deleteMany(),
   ]);
-};
+});
 
-beforeEach(async () => {
-  await resetDb();
+afterAll(async () => {
+  await db.$disconnect();
 });
