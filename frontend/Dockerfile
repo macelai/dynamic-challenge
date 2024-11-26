@@ -1,22 +1,14 @@
-# Use the Node official image
-# https://hub.docker.com/_/node
-FROM node:lts-slim AS build
-
-# Set config
-ENV NPM_CONFIG_UPDATE_NOTIFIER=false
-ENV NPM_CONFIG_FUND=false
-
-# Install necessary build dependencies
-RUN apt-get update && apt-get install -y libc6 && rm -rf /var/lib/apt/lists/*
+# Use the Bun official image
+FROM oven/bun:latest AS build
 
 # Create and change to the app directory.
 WORKDIR /app
 
 # Copy the files to the container image
-COPY package*.json ./
+COPY package*.json bun.lockb ./
 
-# Install packages with specific platform
-RUN npm ci --platform=linux --arch=x64
+# Install packages
+RUN bun install
 
 # Copy local code to the container image.
 COPY . ./
@@ -28,7 +20,7 @@ ARG VITE_DYNAMIC_ENVIRONMENT_ID
 ENV VITE_DYNAMIC_ENVIRONMENT_ID=$VITE_DYNAMIC_ENVIRONMENT_ID
 
 # Build the app.
-RUN npm run build
+RUN bun run build
 
 # Use the Caddy image
 FROM caddy
