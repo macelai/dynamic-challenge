@@ -48,9 +48,8 @@ export default function App() {
     <DynamicContextProvider
       settings={{
         environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
+        // BUG: if no wallet connectors are provided, modal doesn't close after authentication
         walletConnectors: [],
-        socialProvidersFilter: (providers) => providers,
-        initialAuthenticationMode: "connect-and-sign",
         events: {
           onAuthSuccess: handleUserAuthenticated,
         },
