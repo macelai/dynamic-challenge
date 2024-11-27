@@ -9,6 +9,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isLoggedIn) {
+      console.log("Attempting to navigate to dashboard...");
       navigate("/dashboard");
     }
   }, [isLoggedIn, navigate]);
