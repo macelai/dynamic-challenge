@@ -34,7 +34,7 @@ import { useNavigate } from "react-router-dom";
 import { formatUnits, parseUnits } from "viem";
 
 export function WalletDashboard() {
-  const { authToken } = useDynamicContext();
+  const { authToken, handleLogOut } = useDynamicContext();
   const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [recipient, setRecipient] = useState("");
@@ -86,9 +86,14 @@ export function WalletDashboard() {
 
   return (
     <Card className="w-full max-w-3xl mx-auto">
-      <CardHeader>
-        <CardTitle>Wallet Dashboard</CardTitle>
-        <CardDescription>Manage your crypto wallets</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Wallet Dashboard</CardTitle>
+          <CardDescription>Manage your crypto wallets</CardDescription>
+        </div>
+        <Button variant="destructive" onClick={handleLogOut}>
+          Log Out
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-4 mb-6">
