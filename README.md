@@ -16,6 +16,7 @@ Visit the live demo at [https://frontend-production-3ec2.up.railway.app](https:/
 - Redis for queue management
 - Vitest for testing
 - Dynamic Labs passport plugin for authentication
+- Viem for Ethereum interactions
 
 ### Frontend
 - React 18 with TypeScript
@@ -23,7 +24,6 @@ Visit the live demo at [https://frontend-production-3ec2.up.railway.app](https:/
 - TanStack Query for data fetching
 - Tailwind CSS with Shadcn UI components
 - Dynamic Labs SDK for authentication
-- Viem for Ethereum interactions
 
 
 ## Prerequisites
