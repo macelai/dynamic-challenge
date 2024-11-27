@@ -163,3 +163,8 @@ The application utilizes BullMQ with Redis to handle asynchronous wallet operati
    - Job progress tracking
    - Failed operation monitoring
    - Queue health metrics
+
+
+## Bug found
+
+When the Dynamic provider is initialized without any wallet connectors, the authentication modal doesn't close properly after completing the authentication flow. This appears to be a bug in the provider's behavior when no wallet options are configured.
